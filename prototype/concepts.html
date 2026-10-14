@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Routine Clock Concepts</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Lexend:wght@400;600&display=swap">
+<style>
+/* Layout: one column of concept "screens", each a 16:9 mock of the 7" display with notes beside it. */
+:root {
+  --ink: #1d2142; --muted: #5a5f86; --bg: #f3f1fb; --paper: #fff; --line: #dcd9ee;
+  --wake: #ffad1f; --dress: #12a594; --food: #ff6a45; --play: #8a57f5; --leave: #2d7ff0; --night: #121633;
+  --display: "Baloo 2", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+  --ui: "Lexend", "Segoe UI", system-ui, sans-serif;
+  --emoji: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  color-scheme: light;
+}
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--ui); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 32px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 40px; }
+h1 { font: 800 clamp(34px, 6vw, 58px)/1 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 800 clamp(24px, 3.4vw, 34px)/1.1 var(--display); margin: 0; }
+h3 { font: 800 22px/1.1 var(--display); margin: 0; }
+p { margin: 0; max-width: 65ch; }
+.lede { color: var(--muted); font-size: 18px; margin-top: 10px; }
+.cta { display: inline-block; margin-top: 18px; padding: 12px 20px; border-radius: 99px; background: var(--ink); color: #fff; text-decoration: none; font-weight: 600; }
+.e { font-family: var(--emoji); line-height: 1; }
+
+.round1 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.c1 { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 4px; }
+.c1 .e { font-size: 30px; }
+.c1 b { font-family: var(--display); font-size: 17px; line-height: 1.1; }
+.c1 small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.c1.keep { border: 2px solid var(--play); }
+.c1.part { border: 2px dashed var(--play); }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 14px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; }
+.legend .k::before { border: 2px solid var(--play); } .legend .p::before { border: 2px dashed var(--play); } .legend .d::before { border: 1px solid var(--line); }
+
+.concept { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.concept.win .screen { box-shadow: 0 0 0 4px var(--play), 0 14px 30px rgba(29,33,66,.18); }
+.tag { justify-self: start; display: inline-block; font: 600 12px/1 var(--ui); letter-spacing: .12em; text-transform: uppercase; padding: 6px 10px; border-radius: 99px; background: #e9e6f7; color: var(--muted); margin-bottom: 8px; }
+.win .tag { background: var(--play); color: #fff; }
+.notes { display: grid; gap: 10px; min-width: 0; }
+.notes ul { margin: 0; padding-left: 20px; }
+.pro li::marker { content: "+  "; color: #1d8a4f; font-weight: 700; }
+.con li::marker { content: "–  "; color: #b4532a; font-weight: 700; }
+
+.screen { aspect-ratio: 16 / 9; max-width: 100%; border-radius: 18px; border: 10px solid #23263f; overflow: hidden; position: relative; container-type: inline-size; }
+/* A: path */
+.sA { background: #d9f4ef; display: grid; grid-template-rows: 13% 1fr 27%; gap: 2.5cqw; padding: 2.5cqw; box-sizing: border-box; }
+.sA .path { display: flex; gap: .6cqw; }
+.sA .path i { border-radius: 1.2cqw; opacity: .5; display: grid; place-items: center; font-style: normal; font-size: 3cqw; }
+.sA .path i.cur { opacity: 1; outline: .5cqw solid #fff; }
+.sA .mid { display: grid; grid-template-columns: 1fr 30%; gap: 2cqw; }
+.sA .now { background: #fff; border-radius: 2cqw; display: flex; align-items: center; gap: 3cqw; padding: 2cqw; }
+.sA .disc { width: 22cqw; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--dress) 250deg, #eceef6 0); display: grid; place-items: center; flex: none; }
+.sA .disc span { width: 60%; aspect-ratio: 1; background: #fff; border-radius: 50%; display: grid; place-items: center; font-size: 7cqw; }
+.sA .big { font: 800 5.4cqw/1 var(--display); }
+.sA .dots { display: flex; gap: .7cqw; margin-top: 1cqw; } .sA .dots b { width: 1.6cqw; aspect-ratio: 1; border-radius: 50%; background: var(--dress); }
+.sA .side { display: grid; grid-template-rows: auto 1fr; gap: 2cqw; }
+.sA .card { background: rgba(255,255,255,.75); border-radius: 2cqw; padding: 1.5cqw; display: flex; align-items: center; gap: 1.5cqw; font: 800 2.6cqw/1 var(--display); }
+.sA .jar { width: 6cqw; height: 100%; border: .5cqw solid var(--play); border-top-width: 1.2cqw; border-radius: 1cqw 1cqw 2cqw 2cqw; background: linear-gradient(to top, var(--play) 60%, #fff 0); flex: none; box-sizing: border-box; }
+.sA .lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 2cqw; }
+.sA .lane { background: #fff; border-radius: 2cqw; display: flex; align-items: center; gap: 1.2cqw; padding: 0 1.5cqw; font-size: 4.4cqw; }
+.sA .lane u { text-decoration: none; width: 6.4cqw; aspect-ratio: 1; border-radius: 50%; border: .4cqw dashed var(--dress); display: grid; place-items: center; font-size: 3cqw; background: #d9f4ef; }
+.sA .lane u.on { background: var(--dress); border-style: solid; }
+/* B: train */
+.sB { background: linear-gradient(#cfe7ff 62%, #a8d98a 0); padding: 3cqw; box-sizing: border-box; display: grid; grid-template-rows: 1fr auto auto; gap: 2cqw; }
+.sB .now { background: #fff; border-radius: 2cqw; display: flex; align-items: center; justify-content: center; gap: 3cqw; font: 800 6cqw/1 var(--display); }
+.sB .now .e { font-size: 10cqw; }
+.sB .puffs { font-size: 3cqw; opacity: .7; }
+.sB .train { display: flex; align-items: end; gap: .8cqw; }
+.sB .car { height: 9cqw; border-radius: 1.4cqw 1.4cqw .6cqw .6cqw; display: grid; place-items: center; font-size: 4cqw; position: relative; }
+.sB .car::after { content: ""; position: absolute; bottom: -1.6cqw; left: 15%; right: 15%; height: 1.8cqw; background: radial-gradient(circle, #23263f 45%, transparent 47%) 0 0 / 3cqw 1.8cqw repeat-x; }
+.sB .loco { font-size: 9cqw; }
+.sB .rail { height: .8cqw; background: #6b5a4a; border-radius: 1cqw; }
+.sB .station { font: 800 2.6cqw/1 var(--display); text-align: right; }
+/* C: rocket */
+.sC { background: radial-gradient(circle at 70% 20%, #3a3f86, var(--night)); color: #fff; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; justify-items: center; padding: 3cqw; box-sizing: border-box; }
+.sC .tank { width: 14cqw; height: 80%; border: .8cqw solid #fff; border-radius: 3cqw; position: relative; overflow: hidden; }
+.sC .tank::after { content: ""; position: absolute; inset: auto 0 0 0; height: 45%; background: repeating-linear-gradient(45deg, #ffad1f 0 2cqw, #ff8a1f 2cqw 4cqw); }
+.sC .rocket { font-size: 20cqw; }
+.sC .lines { display: grid; gap: 2cqw; font: 800 3cqw/1 var(--display); }
+.sC .line { display: flex; align-items: center; gap: 1cqw; }
+.sC .line b { width: 18cqw; height: 2cqw; border-radius: 1cqw; background: linear-gradient(90deg, #ffad1f var(--p), #3a3f86 0); }
+.sC .count { font: 800 5cqw/1 var(--display); }
+
+table { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--paper); }
+.tbl { overflow-x: auto; border-radius: 14px; border: 1px solid var(--line); }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; background: #ecebf6; }
+td.y { color: #1d8a4f; font-weight: 600; }
+@media (max-width: 760px) { .concept { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>From ten ideas to one clock</h1>
+    <p class="lede">Design concepts for a weekday morning clock for a 3 and a 4 year old, on a Raspberry Pi 4 with the 7" Touch Display 2. The full reasoning is in <code>docs/design-process.md</code>.</p>
+    <a class="cta" href="index.html">Open the working prototype →</a>
+  </header>
+
+  <section style="display:grid;gap:14px">
+    <h2>Round 1: ten concepts, weighted scores out of 80</h2>
+    <div class="round1">
+      <div class="c1 keep"><span class="e">⏲️</span><b>Time-Timer Disc</b><small>62</small></div>
+      <div class="c1 keep"><span class="e">🫙</span><b>Play Jar</b><small>60</small></div>
+      <div class="c1 keep"><span class="e">🗺️</span><b>Morning Path</b><small>56</small></div>
+      <div class="c1 keep"><span class="e">🚂</span><b>Morning Train</b><small>56</small></div>
+      <div class="c1 keep"><span class="e">🃏</span><b>Now &amp; Next Board</b><small>54</small></div>
+      <div class="c1 part"><span class="e">🚦</span><b>Traffic Light</b><small>51 · became night mode</small></div>
+      <div class="c1 part"><span class="e">🦊</span><b>Mascot Buddy</b><small>46 · kids' own animals</small></div>
+      <div class="c1 part"><span class="e">🚀</span><b>Rocket Mission</b><small>44 · leaving finale</small></div>
+      <div class="c1"><span class="e">🌷</span><b>Garden Grows</b><small>41</small></div>
+      <div class="c1"><span class="e">🦸</span><b>Superhero Cards</b><small>37</small></div>
+    </div>
+    <div class="legend"><span class="k">Taken forward</span><span class="p">Dropped, best part kept</span><span class="d">Dropped</span></div>
+  </section>
+
+  <section style="display:grid;gap:28px">
+    <h2>Round 2: three hybrids</h2>
+
+    <article class="concept win">
+      <div class="screen sA" role="img" aria-label="Morning Path mock-up">
+        <div class="path">
+          <i class="e" style="flex:15;background:var(--wake)">🤗</i><i class="e cur" style="flex:15;background:var(--dress)">👕</i><i class="e" style="flex:10;background:var(--food)">🥣</i><i class="e" style="flex:10;background:var(--play)">🎲</i><i class="e" style="flex:5;background:var(--leave)">🧥</i>
+        </div>
+        <div class="mid">
+          <div class="now"><div class="disc"><span class="e">👕</span></div><div><div class="big">Get dressed</div><div class="dots"><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div></div></div>
+          <div class="side"><div class="card"><span class="e">🥣</span>Next</div><div class="card"><span class="jar"></span>10 min play</div></div>
+        </div>
+        <div class="lanes">
+          <div class="lane"><span class="e">🦊</span><u class="e on">🩲</u><u class="e on">👕</u><u class="e">👖</u><u class="e">🧦</u></div>
+          <div class="lane"><span class="e">🐼</span><u class="e on">🩲</u><u class="e">👕</u><u class="e">👖</u><u class="e">🧦</u></div>
+        </div>
+      </div>
+      <div class="notes">
+        <span class="tag">Chosen · A</span>
+        <h3>Morning Path</h3>
+        <p>Big NOW with a shrinking disc, small NEXT, a proportional path along the top, a shared play jar and one lane of step bubbles per child.</p>
+        <ul class="pro"><li>Keeps the two best early-years tools (Now/Next and a visual timer) as the biggest things on screen</li><li>Play jar makes slow mornings a visible result, not a parent's verdict</li><li>Calm. Readable from across the room.</li></ul>
+        <ul class="con"><li>Most elements of the three. Solved by flooding the screen with one colour per step.</li></ul>
+      </div>
+    </article>
+
+    <article class="concept">
+      <div class="screen sB" role="img" aria-label="Morning Train mock-up">
+        <div class="now"><span class="puffs">☁️☁️</span><span class="e">🥣</span>Breakfast</div>
+        <div class="train">
+          <span class="loco e">🚂</span>
+          <div class="car e" style="flex:15;background:var(--dress);opacity:.4">👕</div>
+          <div class="car e" style="flex:10;background:var(--food);outline:.6cqw solid #fff">🥣</div>
+          <div class="car e" style="flex:7;background:var(--play)">🎲</div>
+          <div class="car e" style="flex:5;background:var(--leave)">🧥</div>
+          <div class="station">🏫 Station</div>
+        </div>
+        <div class="rail"></div>
+      </div>
+      <div class="notes">
+        <span class="tag">Runner-up · B</span>
+        <h3>Morning Train</h3>
+        <p>Each step is a carriage whose length is its duration. The play carriage stretches or squashes with the morning's pace.</p>
+        <ul class="pro"><li>Children love trains. Length = time is intuitive.</li></ul>
+        <ul class="con"><li>Current step is small and hard to read at 3 m</li><li>Overtime is awkward to show</li></ul>
+        <p><b>Kept in A:</b> proportional path segments and the squashing play segment.</p>
+      </div>
+    </article>
+
+    <article class="concept">
+      <div class="screen sC" role="img" aria-label="Rocket Countdown mock-up">
+        <div class="tank"></div>
+        <div class="rocket e">🚀</div>
+        <div class="lines">
+          <div class="line"><span class="e">🦊</span><b style="--p:70%"></b></div>
+          <div class="line"><span class="e">🐼</span><b style="--p:40%"></b></div>
+          <div class="count">Launch 7:40</div>
+        </div>
+      </div>
+      <div class="notes">
+        <span class="tag">Dropped · C</span>
+        <h3>Rocket Countdown</h3>
+        <p>A fuel tank fills as steps get done, and the rocket "launches" when you leave the house.</p>
+        <ul class="pro"><li>Very exciting finale</li></ul>
+        <ul class="con"><li>Doesn't say <em>what</em> to do right now</li><li>Two fuel lines invite "who's winning"</li><li>Over-stimulating first thing in the morning</li></ul>
+        <p><b>Kept in A:</b> the leaving celebration ("Door dance!" then "Bye bye house!").</p>
+      </div>
+    </article>
+  </section>
+
+  <section style="display:grid;gap:14px">
+    <h2>Real-morning walkthrough</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>Scenario</th><th>A. Path</th><th>B. Train</th><th>C. Rocket</th></tr></thead>
+      <tbody>
+        <tr><td>Normal morning</td><td class="y">NOW obvious from across the room</td><td>Clear, but current step small</td><td>Exciting, unclear what to do</td></tr>
+        <tr><td>Slow dressing</td><td class="y">Disc empties, jar shrinks, kind wording</td><td>Play carriage shrinks</td><td>Tank "leaks", feels like failing</td></tr>
+        <tr><td>Super quick</td><td class="y">"+4 min of play!" floats into the jar</td><td>Long play carriage</td><td>Spare fuel is abstract</td></tr>
+        <tr><td>One child poorly</td><td class="y">Grown-up finishes the step</td><td>Works</td><td>Uneven fuel lines look like losing</td></tr>
+        <tr><td>Wakes at 03:00</td><td class="y">Near-black moon, sunrise bar</td><td>Train in the shed</td><td>Weak</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+</div>
+</body>
+</html>

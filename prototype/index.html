@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Morning Path Clock</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Lexend:wght@400;600&display=swap">
+<style>
+/* Layout: whole screen floods with the colour of the current step.
+   Top = the morning path (proportional timeline). Middle = NOW (shrinking
+   Time-Timer disc) + NEXT and the play jar. Bottom = one lane per child. */
+:root {
+  --ink: #1d2142;          /* text */
+  --ink-soft: #5a5f86;
+  --paper: #ffffff;        /* cards */
+  --night: #121633;        /* night scene */
+  --c-wake: #ffad1f;  --s-wake: #fff0d1;
+  --c-dress: #12a594; --s-dress: #d9f4ef;
+  --c-breakfast: #ff6a45; --s-breakfast: #ffe5dc;
+  --c-play: #8a57f5;  --s-play: #ece4ff;
+  --c-leave: #2d7ff0; --s-leave: #dfeaff;
+  --c-day: #34a866;   --s-day: #e1f4e8;
+  --c-weekend: #e4559a; --s-weekend: #fde5f0;
+  --c-night: #4a4fa8; --s-night: #121633;
+  --font-display: "Baloo 2", "Arial Rounded MT Bold", "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  --font-ui: "Lexend", "Segoe UI", system-ui, sans-serif;
+  --emoji: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  --ph: var(--c-dress);
+  --soft: var(--s-dress);
+  --r: clamp(14px, 2.4vmin, 26px);
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--soft); color: var(--ink);
+  font-family: var(--font-ui);
+  transition: background-color 1.2s ease;
+  overflow: hidden; -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+body[data-phase="wake"]      { --ph: var(--c-wake);      --soft: var(--s-wake); }
+body[data-phase="dress"]     { --ph: var(--c-dress);     --soft: var(--s-dress); }
+body[data-phase="breakfast"] { --ph: var(--c-breakfast); --soft: var(--s-breakfast); }
+body[data-phase="play"]      { --ph: var(--c-play);      --soft: var(--s-play); }
+body[data-phase="leave"]     { --ph: var(--c-leave);     --soft: var(--s-leave); }
+body[data-phase="day"]       { --ph: var(--c-day);       --soft: var(--s-day); }
+body[data-phase="weekend"]   { --ph: var(--c-weekend);   --soft: var(--s-weekend); }
+body[data-phase="night"]     { --ph: var(--c-night);     --soft: var(--s-night); }
+.e { font-family: var(--emoji); font-style: normal; line-height: 1; }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+button:focus-visible { outline: 4px solid var(--ink); outline-offset: 3px; }
+
+#app {
+  height: 100%; box-sizing: border-box;
+  display: grid; grid-template-rows: auto 1fr auto; gap: clamp(8px, 1.6vmin, 18px);
+  padding-block: clamp(8px, 1.6vmin, 18px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body.demo-on #app { padding-bottom: calc(clamp(8px, 1.6vmin, 18px) + 52px); }
+
+/* ---------- Morning path ---------- */
+.top { display: flex; gap: 12px; align-items: stretch; }
+.track { position: relative; flex: 1; display: flex; gap: 4px; height: clamp(56px, 10vmin, 84px); padding-top: clamp(14px, 2.6vmin, 22px); }
+.seg {
+  position: relative; display: flex; align-items: center; justify-content: center; min-width: 0;
+  background: var(--c); border-radius: 12px; opacity: .45; overflow: hidden;
+  transition: flex-grow .8s ease, opacity .6s;
+  font-size: clamp(18px, 4vmin, 34px);
+}
+.seg.past { opacity: .25; }
+.seg.cur { opacity: 1; box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--c); }
+.seg.empty { opacity: .12; }
+.seg .tick { position: absolute; right: 4px; top: 2px; font-size: .5em; }
+.c-wake { --c: var(--c-wake); } .c-dress { --c: var(--c-dress); } .c-breakfast { --c: var(--c-breakfast); }
+.c-play { --c: var(--c-play); } .c-leave { --c: var(--c-leave); }
+.marker {
+  position: absolute; top: 0; transform: translateX(-50%); transition: left .8s linear;
+  display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 2;
+}
+.marker .pals { font-size: clamp(16px, 3.2vmin, 26px); background: var(--paper); border-radius: 99px; padding: 1px 6px; box-shadow: 0 2px 0 rgba(0,0,0,.12); white-space: nowrap; }
+.marker .stem { width: 4px; height: clamp(46px, 8.6vmin, 70px); background: var(--ink); border-radius: 2px; opacity: .7; }
+
+.clock {
+  display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px;
+  min-width: 96px; padding: 4px 12px; border-radius: 14px; background: rgba(255,255,255,.55);
+  font-variant-numeric: tabular-nums;
+}
+.clock .time { font: 600 clamp(18px, 3.4vmin, 28px)/1 var(--font-ui); }
+.chip { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: #e7f6ec; color: #1d6b3d; white-space: nowrap; }
+.chip.behind { background: #fff1d6; color: #8a5300; }
+.chip.hide { visibility: hidden; }
+.clock .hold { font-size: 10px; color: var(--ink-soft); }
+
+/* ---------- Stage ---------- */
+.stage { display: grid; grid-template-columns: 1fr minmax(220px, 30%); gap: clamp(10px, 2vmin, 22px); min-height: 0; }
+.now {
+  display: flex; align-items: center; gap: clamp(14px, 3vmin, 36px); min-width: 0; min-height: 0;
+  background: var(--paper); border-radius: var(--r); padding: clamp(12px, 2.4vmin, 28px);
+  box-shadow: 0 6px 0 color-mix(in srgb, var(--ph) 35%, transparent);
+}
+.disc {
+  --f: 1; flex: none; position: relative; aspect-ratio: 1; max-width: 100%;
+  height: min(100%, 44vmin); border-radius: 50%;
+  background: conic-gradient(var(--ph) calc(var(--f) * 360deg), #eceef6 0);
+  transition: background .3s;
+}
+.disc::after { /* minute ticks like a real kitchen timer */
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: repeating-conic-gradient(rgba(255,255,255,.75) 0 1.2deg, transparent 1.2deg 30deg);
+  -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%, #000 66%, transparent 67%);
+          mask: radial-gradient(circle, transparent 60%, #000 61%, #000 66%, transparent 67%);
+}
+.disc-face {
+  position: absolute; inset: 22%; border-radius: 50%; background: var(--paper);
+  display: grid; place-items: center; box-shadow: 0 4px 0 rgba(0,0,0,.08); z-index: 1;
+}
+.disc-icon { font-size: min(14vmin, 120px); }
+.disc.hurry { animation: pulse 1.6s ease-in-out infinite; }
+.disc.over { background: repeating-conic-gradient(color-mix(in srgb, var(--ph) 30%, #fff) 0 6deg, #eceef6 6deg 12deg); }
+.disc.over .disc-icon { animation: wobble 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.035); } }
+@keyframes wobble { 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+
+.now-text { flex: 1; display: flex; flex-direction: column; gap: clamp(4px, 1vmin, 10px); min-width: 0; }
+.eyebrow { margin: 0; font: 600 clamp(12px, 2vmin, 16px)/1 var(--font-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--ph); }
+h1 { margin: 0; font: 800 clamp(30px, 8vmin, 72px)/.95 var(--font-display); text-wrap: balance; }
+.sub { margin: 0; font: 600 clamp(18px, 3.8vmin, 32px)/1.1 var(--font-display); color: var(--ink-soft); }
+.dots { display: flex; flex-wrap: wrap; gap: clamp(4px, .8vmin, 7px); }
+.dot { width: clamp(10px, 2.3vmin, 20px); aspect-ratio: 1; border-radius: 50%; background: var(--ph); }
+.dot.going { animation: fade 2s ease-in-out infinite; }
+@keyframes fade { 50% { opacity: .3; } }
+.grown { margin: 0; font-size: clamp(12px, 2vmin, 16px); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+.game { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 4px; padding: 10px 14px; border-radius: 16px; background: var(--soft); }
+.game > div { flex: 1 1 10em; min-width: 0; }
+.game .gi { font-size: clamp(34px, 7vmin, 60px); }
+.game .gname { font: 800 clamp(20px, 4vmin, 34px)/1 var(--font-display); }
+.game .ghow { font-size: clamp(12px, 2vmin, 16px); color: var(--ink-soft); }
+.game .who { font-size: 13px; font-weight: 600; color: var(--ph); }
+.spin { margin-left: auto; flex: none; padding: 12px 18px; border-radius: 99px; background: var(--ph); color: #fff; font: 800 clamp(18px, 3.2vmin, 26px)/1 var(--font-display); box-shadow: 0 4px 0 rgba(0,0,0,.18); }
+.spin:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.18); }
+
+.side { display: grid; grid-template-rows: auto 1fr; gap: clamp(10px, 2vmin, 22px); min-height: 0; }
+.next { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.7); border-radius: var(--r); padding: clamp(10px, 1.8vmin, 18px); }
+.next .ni { font-size: clamp(30px, 6vmin, 52px); width: 1.4em; height: 1.4em; display: grid; place-items: center; border-radius: 50%; background: var(--nc, #ddd); flex: none; }
+.next .nl { font: 800 clamp(18px, 3.4vmin, 30px)/1 var(--font-display); }
+.next .nt { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+.jar-wrap { display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,.7); border-radius: var(--r); padding: clamp(10px, 1.8vmin, 18px); min-height: 0; }
+.jar { position: relative; flex: none; width: clamp(52px, 10vmin, 86px); height: 100%; max-height: 170px; min-height: 70px; border: 4px solid var(--c-play); border-top-width: 10px; border-radius: 10px 10px 22px 22px; overflow: hidden; background: var(--paper); }
+.jar .fill { position: absolute; inset: auto 0 0 0; height: 50%; background: radial-gradient(circle at 30% 30%, #b997ff 0 18%, transparent 19%) 0 0/18px 18px, var(--c-play); transition: height 1s ease; }
+.jar-text { min-width: 0; }
+.jar-text .jn { font: 800 clamp(26px, 5.6vmin, 50px)/1 var(--font-display); color: var(--c-play); font-variant-numeric: tabular-nums; }
+.jar-text .jl { font: 600 clamp(14px, 2.6vmin, 22px)/1.1 var(--font-display); }
+.jar-text .jh { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+.jar-wrap.shrink .jar { animation: wobble 1.4s ease-in-out infinite; }
+.plus { position: absolute; font: 800 28px var(--font-display); color: var(--c-play); animation: floatup 1.8s ease-out forwards; pointer-events: none; }
+@keyframes floatup { to { transform: translateY(-80px); opacity: 0; } }
+
+/* ---------- Kid lanes ---------- */
+.lanes { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(10px, 2vmin, 22px); }
+.lane { display: flex; align-items: center; gap: clamp(8px, 1.6vmin, 16px); background: var(--paper); border-radius: var(--r); padding: clamp(8px, 1.6vmin, 16px); min-width: 0; min-height: clamp(96px, 22vmin, 170px); box-sizing: border-box; }
+.who { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; width: clamp(64px, 12vmin, 110px); }
+.avatar { font-size: clamp(38px, 8vmin, 70px); transition: transform .3s; }
+.avatar.bounce { animation: bounce .6s ease; }
+@keyframes bounce { 40% { transform: translateY(-14px) scale(1.1); } }
+.kname { font: 800 clamp(14px, 2.6vmin, 22px)/1 var(--font-display); text-align: center; overflow-wrap: anywhere; }
+.kstars { font-size: clamp(11px, 2vmin, 16px); min-height: 1em; letter-spacing: -1px; }
+.steps { flex: 1; display: flex; justify-content: space-evenly; gap: clamp(6px, 1.2vmin, 12px); min-width: 0; }
+.step {
+  flex: 0 1 clamp(84px, 19vmin, 140px); min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  aspect-ratio: 1; border-radius: 50%; box-sizing: border-box;
+  background: var(--soft); border: 4px dashed color-mix(in srgb, var(--ph) 55%, transparent);
+  transition: transform .15s, background .3s;
+}
+.step .si { font-size: clamp(26px, 6vmin, 52px); }
+.step .st { font: 600 clamp(10px, 1.8vmin, 15px)/1 var(--font-ui); color: var(--ink-soft); }
+.step:active { transform: scale(.93); }
+.step.on { background: var(--ph); border: 4px solid var(--ph); }
+.step.on .st { color: #fff; }
+.step.on .si { filter: drop-shadow(0 2px 0 rgba(0,0,0,.2)); }
+.lane-msg { flex: 1; display: flex; align-items: center; justify-content: center; gap: 12px; font: 800 clamp(22px, 4.6vmin, 40px)/1 var(--font-display); color: var(--ph); text-align: center; }
+.lane-msg .e { font-size: 1.4em; }
+.lane.done .lane-msg .e { animation: bounce 1.4s ease infinite; }
+
+/* ---------- Night ---------- */
+.night {
+  position: fixed; inset: 0; z-index: 20; color: #c9cdf5; background: var(--night);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vmin;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  transition: background 2s;
+}
+.night.dawn { background: linear-gradient(to top, #ff9d6b calc(var(--dawn) * 30%), #3a3f86 calc(var(--dawn) * 60%), var(--night)); }
+.night .moon { font-size: 20vmin; filter: saturate(.7); }
+.night .sleepers { font-size: 9vmin; letter-spacing: 2vmin; }
+.night .zz { font: 800 4vmin/1 var(--font-display); animation: fade 3s ease-in-out infinite; }
+.night h2 { margin: 0; font: 800 clamp(26px, 7vmin, 64px)/1 var(--font-display); color: #e6e8ff; text-align: center; }
+.sunpath { position: relative; width: min(80vw, 640px); height: 10px; border-radius: 6px; background: #2a2f63; margin-top: 2vmin; }
+.sunpath .sp-fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px; background: linear-gradient(90deg, #4a4fa8, #ffad1f); }
+.sunpath .sp-m, .sunpath .sp-s { position: absolute; top: 50%; transform: translate(-50%, -50%); font-size: 5vmin; }
+.sunpath .sp-m { left: 0; } .sunpath .sp-s { left: 100%; }
+.night .hint { font-size: 14px; opacity: .6; }
+.night .dim { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 3s; pointer-events: none; }
+.night.dimmed .dim { opacity: .82; }
+
+/* ---------- Celebration ---------- */
+.celebrate { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(255,255,255,.55); pointer-events: none; }
+.celebrate .box { text-align: center; background: var(--paper); border-radius: 32px; padding: 3vmin 5vmin; box-shadow: 0 10px 0 var(--ph); animation: pop .5s cubic-bezier(.2,1.6,.4,1); max-width: 86vw; }
+.celebrate .big { font-size: 16vmin; }
+.celebrate .msg { font: 800 clamp(26px, 7vmin, 64px)/1 var(--font-display); }
+.celebrate .msg2 { font: 600 clamp(16px, 3.6vmin, 30px)/1.2 var(--font-display); color: var(--c-play); margin-top: 8px; }
+@keyframes pop { from { transform: scale(.4); opacity: 0; } }
+.confetti { position: fixed; z-index: 31; font-size: 5vmin; pointer-events: none; animation: confetti 1.6s ease-out forwards; }
+@keyframes confetti { to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; } }
+
+/* ---------- Parent panel + demo bar ---------- */
+.panel-back { position: fixed; inset: 0; z-index: 40; background: rgba(18,22,51,.55); display: grid; place-items: center; padding: 16px; }
+.panel { width: min(640px, 100%); max-height: 90%; overflow: auto; background: var(--paper); border-radius: 22px; padding: 22px; box-sizing: border-box; display: grid; gap: 16px; font-size: 15px; }
+.panel h3 { margin: 0; font: 800 26px/1 var(--font-display); }
+.panel .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.panel label { font-weight: 600; }
+.panel input[type="text"] { font: inherit; padding: 8px 10px; border: 2px solid #d6d9ea; border-radius: 10px; width: 9em; }
+.panel select { font: inherit; padding: 6px 8px; border-radius: 10px; border: 2px solid #d6d9ea; }
+.av { font-size: 26px; width: 44px; height: 44px; border-radius: 12px; background: #f1f2f8; }
+.av.sel { background: var(--ph); }
+.pbtn { padding: 10px 14px; border-radius: 12px; background: #eef0f8; font-weight: 600; }
+.pbtn.primary { background: var(--ink); color: #fff; }
+.panel small { color: var(--ink-soft); }
+.demo {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 35; display: flex; gap: 6px; align-items: center; overflow-x: auto;
+  padding-block: 8px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  background: #1d2142; color: #fff; font-size: 13px; white-space: nowrap;
+}
+.demo b { font-variant-numeric: tabular-nums; margin-right: 4px; }
+.demo button { padding: 6px 10px; border-radius: 8px; background: #343a6b; color: #fff; font-size: 13px; }
+.demo button.on { background: #ffad1f; color: #1d2142; }
+.demo .sep { width: 1px; align-self: stretch; background: #4a4f80; margin: 0 4px; }
+
+/* ---------- Portrait / small screens ---------- */
+@media (max-aspect-ratio: 1/1) {
+  .stage { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .now { flex-direction: column; text-align: center; justify-content: center; }
+  .now-text { align-items: center; }
+  .dots { justify-content: center; }
+  .disc { height: auto; width: min(52vw, 34vh); }
+  .side { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+  .jar { height: 70px; }
+  .lanes { grid-template-columns: 1fr; }
+  .game { text-align: left; }
+}
+@media (max-width: 560px) {
+  .lane { min-height: 0; }
+  .step .st { display: none; }
+  .clock .hold { display: none; }
+  .game { flex-wrap: wrap; }
+  .spin { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body data-phase="dress">
+<div id="app">
+  <header class="top">
+    <div class="track" id="track" aria-label="The morning path">
+      <div class="marker" id="marker"><span class="pals e" id="pals">🦊🐼</span><span class="stem"></span></div>
+    </div>
+    <button class="clock" id="clock" aria-label="Clock. Hold for grown-up settings">
+      <span class="time" id="clockTime">7:00</span>
+      <span class="chip" id="chip">On track</span>
+      <span class="hold">hold for grown-ups</span>
+    </button>
+  </header>
+
+  <main class="stage">
+    <section class="now" aria-live="polite">
+      <div class="disc" id="disc"><div class="disc-face"><span class="disc-icon e" id="nowIcon">👕</span></div></div>
+      <div class="now-text">
+        <p class="eyebrow" id="eyebrow">Now</p>
+        <h1 id="nowLabel">Get dressed</h1>
+        <p class="sub" id="nowSub">and brush teeth</p>
+        <div class="dots" id="dots" aria-hidden="true"></div>
+        <p class="grown" id="grown"></p>
+        <div class="game" id="game" hidden>
+          <span class="gi e" id="gIcon">🎡</span>
+          <div>
+            <div class="who" id="gWho"></div>
+            <div class="gname" id="gName">Spin for a game!</div>
+            <div class="ghow" id="gHow"></div>
+          </div>
+          <button class="spin" id="spin">Spin!</button>
+        </div>
+      </div>
+    </section>
+    <aside class="side">
+      <div class="next" id="next">
+        <span class="ni e" id="nextIcon">🥣</span>
+        <div><div class="eyebrow">Next</div><div class="nl" id="nextLabel">Breakfast</div><div class="nt" id="nextTime"></div></div>
+      </div>
+      <div class="jar-wrap" id="jarWrap">
+        <div class="jar"><div class="fill" id="jarFill"></div></div>
+        <div class="jar-text">
+          <div class="jn" id="jarNum">10</div>
+          <div class="jl">minutes of<br>play time</div>
+          <div class="jh" id="jarHint">Be quick to fill the jar!</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="lanes" id="lanes"></footer>
+</div>
+
+<div class="night" id="night" hidden>
+  <div class="moon e">🌙</div>
+  <div class="sleepers e" id="sleepers">🦊🐼</div>
+  <div class="zz">z z z</div>
+  <h2 id="nightTitle">Sleepy time. Stay in bed.</h2>
+  <div class="sunpath"><div class="sp-fill" id="spFill"></div><span class="sp-m e">🌙</span><span class="sp-s e">☀️</span></div>
+  <div class="hint" id="nightHint">The sun comes up at 6:45</div>
+  <div class="dim"></div>
+</div>
+
+<div class="celebrate" id="celebrate" hidden></div>
+<div id="panelRoot"></div>
+
+<div class="demo" id="demo">
+  <b id="demoTime">--:--</b>
+  <span>Try a time:</span>
+  <button data-jump="180">03:00 night</button>
+  <button data-jump="400">06:40 dawn</button>
+  <button data-jump="405">06:45 wake</button>
+  <button data-jump="420">07:00 dress</button>
+  <button data-jump="435">07:15 breakfast</button>
+  <button data-jump="445">07:25 play</button>
+  <button data-jump="455">07:35 leave</button>
+  <button data-jump="720">12:00 day</button>
+  <button data-jump="now">Real time</button>
+  <span class="sep"></span>
+  <span>Speed:</span>
+  <button data-speed="1" class="on">1×</button>
+  <button data-speed="10">10×</button>
+  <button data-speed="60">60×</button>
+  <span class="sep"></span>
+  <button id="demoParent">Grown-up settings</button>
+  <button id="demoHide">Hide</button>
+</div>
+
+<script>
+'use strict';
+/* =================== CONFIG (edit me) =================== */
+const CFG = {
+  wake: 6 * 60 + 45,      // okay-to-wake
+  dress: 7 * 60,          // getting dressed + teeth starts
+  leave: 7 * 60 + 35,     // shoes & coats (fixed anchor)
+  out: 7 * 60 + 40,       // out of the door
+  bed: 19 * 60 + 30,      // sleep starts
+  dur: { dress: 15, breakfast: 10 },
+  weekdays: [1, 2, 3, 4, 5],
+  bonjour: 15             // minutes of "dawn glow" before wake
+};
+const STEPS = {
+  dress: [['🩲', 'Pants'], ['👕', 'Top'], ['👖', 'Bottoms'], ['🧦', 'Socks'], ['🪥', 'Teeth']],
+  breakfast: [['🥣', 'Eat up'], ['🥛', 'Drink'], ['🍽️', 'Bowl away']],
+  leave: [['🧥', 'Coat'], ['👟', 'Shoes'], ['🎒', 'Bag']]
+};
+const PHASES = {
+  night:     { label: 'Sleepy time', sub: 'Stay in bed', icon: '🌙' },
+  wake:      { label: 'Good morning!', sub: 'Wake up and cuddles', icon: '🤗' },
+  dress:     { label: 'Get dressed', sub: 'and brush teeth', icon: '👕' },
+  breakfast: { label: 'Breakfast', sub: 'Yum yum', icon: '🥣' },
+  play:      { label: 'Play time!', sub: 'Pick a quick game', icon: '🎲' },
+  leave:     { label: 'Time to go', sub: 'Coat, shoes, bag', icon: '🧥' },
+  day:       { label: 'Have a great day!', sub: 'See you at bedtime', icon: '☀️' },
+  weekend:   { label: "It's the weekend!", sub: 'No rush today', icon: '🏡' }
+};
+const GAMES = [
+  ['🧊', 'Freeze Dance', 'Dance! Freeze when the grown-up shouts STOP.'],
+  ['🐧', 'Animal Walks', 'Waddle like a penguin, hop like a frog.'],
+  ['🧸', 'Hide the Teddy', 'One hides teddy, everyone finds it.'],
+  ['👀', 'I Spy Colours', '"I spy something... blue!"'],
+  ['🙋', 'Simon Says', 'Only move when Simon says.'],
+  ['🏰', 'Cushion Tower', 'Build the tallest tower together.'],
+  ['🎈', 'Keep It Up', "Don't let the balloon touch the floor."],
+  ['🤪', 'Copy My Face', 'Make a silly face. Copy it!']
+];
+const AVATARS = ['🦊', '🐼', '🐯', '🐸', '🦄', '🐵', '🐰', '🦁', '🐨', '🐙'];
+const MIN = 60000;
+
+/* =================== STORAGE =================== */
+const KEY = 'morningPathClock.v1';
+function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify({ settings, state })); } catch (e) {} }
+const saved = load();
+const settings = Object.assign({ names: ['Fox', 'Panda'], avatars: ['🦊', '🐼'], sound: true, voice: false, weekendWake: 7 * 60, demo: true }, saved.settings || {});
+let state = saved.state || null;
+
+/* =================== CLOCK (real or simulated) =================== */
+const sim = { real: Date.now(), at: Date.now(), speed: 1 };
+const now = () => sim.at + (Date.now() - sim.real) * sim.speed;
+function setSim(at, speed) { sim.at = at == null ? now() : at; sim.real = Date.now(); if (speed) sim.speed = speed; }
+const dayStart = ms => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const dayKey = ms => { const d = new Date(ms); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+const fmt = ms => { const d = new Date(ms); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); };
+const fmtMin = m => Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
+const isWeekday = ms => CFG.weekdays.includes(new Date(ms).getDay());
+const wakeFor = ms => isWeekday(ms) ? CFG.wake : settings.weekendWake;
+
+function freshState(ms) {
+  return { day: dayKey(ms), done: {}, ticks: {}, kidDone: {}, stars: [0, 0], warned: {}, game: null };
+}
+function ensureDay(ms) { if (!state || state.day !== dayKey(ms)) { state = freshState(ms); save(); } }
+
+/* =================== ENGINE =================== */
+function compute(t) {
+  ensureDay(t);
+  const t0 = dayStart(t), M = x => t0 + x * MIN, m = (t - t0) / MIN, d = state.done;
+  const v = { t, M };
+  const wk = isWeekday(t);
+  const wake = wakeFor(t);
+
+  if (m < wake || m >= CFG.bed) {
+    v.phase = 'night';
+    v.start = m < wake ? M(CFG.bed) - 1440 * MIN : M(CFG.bed);
+    v.end = m < wake ? M(wake) : M(1440 + wakeFor(t + 86400000));
+    v.next = { id: 'wake', time: v.end };
+    return finish(v);
+  }
+  if (!wk) { v.phase = 'weekend'; v.start = M(wake); v.end = M(CFG.bed); v.next = { id: 'night', time: v.end }; return finish(v); }
+  if (m >= CFG.out) { v.phase = 'day'; v.start = M(CFG.out); v.end = M(CFG.bed); v.next = { id: 'night', time: v.end }; return finish(v); }
+
+  // Morning path boundaries: b0 wake | b1 dress | b2 breakfast | b3 play | b4 leave | b5 out
+  const b0 = M(CFG.wake), b5 = M(CFG.out);
+  const playEnd = M(CFG.leave);
+  let phase;
+  if (!d.wake && m < CFG.dress) phase = 'wake';
+  else if (m >= CFG.leave || d.play) phase = 'leave';
+  else if (!d.dress) phase = 'dress';
+  else if (!d.breakfast) phase = 'breakfast';
+  else phase = 'play';
+  v.phase = phase;
+
+  const b1 = d.wake ? d.wake.at : M(CFG.dress);
+  let b2 = d.dress ? d.dress.at : Math.max(b1 + CFG.dur.dress * MIN, phase === 'dress' ? t : 0);
+  b2 = Math.min(b2, playEnd);
+  let b3 = d.breakfast ? d.breakfast.at : Math.max(b2 + CFG.dur.breakfast * MIN, phase === 'breakfast' ? t : 0);
+  b3 = Math.min(Math.max(b3, b2), playEnd);
+  const b4 = d.play ? Math.max(d.play.at, b3) : playEnd;
+  v.bounds = [b0, b1, b2, b3, b4, b5];
+  v.playMins = Math.max(0, Math.round((playEnd - b3) / MIN));
+
+  switch (phase) {
+    case 'wake': v.start = b0; v.end = M(CFG.dress); v.next = { id: 'dress', time: v.end }; break;
+    case 'dress': v.start = b1; v.end = b1 + CFG.dur.dress * MIN; v.task = true; v.next = { id: 'breakfast', time: v.end }; break;
+    case 'breakfast': v.start = d.dress.at; v.end = v.start + CFG.dur.breakfast * MIN; v.task = true;
+      v.next = v.playMins > 0 ? { id: 'play', time: Math.max(v.end, t) } : { id: 'leave', time: playEnd }; break;
+    case 'play': v.start = d.breakfast.at; v.end = playEnd; v.next = { id: 'leave', time: playEnd }; break;
+    case 'leave': v.start = d.play ? Math.min(d.play.at, playEnd) : playEnd; v.end = b5; v.task = !d.leave; v.ready = !!d.leave;
+      v.next = { id: 'out', time: b5 }; break;
+  }
+  return finish(v);
+}
+function finish(v) {
+  v.total = Math.max(1, v.end - v.start);
+  v.remaining = v.end - v.t;
+  v.frac = Math.min(1, Math.max(0, v.remaining / v.total));
+  v.over = v.task && v.remaining < 0;
+  v.key = v.phase + (v.ready ? '-ready' : '');
+  return v;
+}
+
+/* =================== SOUND & VOICE =================== */
+let ac = null;
+function audio() {
+  if (!settings.sound) return null;
+  try { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch (e) { return null; }
+  return ac;
+}
+function tone(f, at, dur, vol = 0.1, type = 'sine') {
+  const a = audio(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain(), s = a.currentTime + at;
+  o.type = type; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(vol, s + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, s + dur);
+  o.connect(g); g.connect(a.destination); o.start(s); o.stop(s + dur + 0.05);
+}
+const SFX = {
+  tap: () => tone(880, 0, 0.18, 0.08),
+  untap: () => tone(440, 0, 0.15, 0.06),
+  star: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.09, 0.4)),
+  change: () => [659, 784, 988].forEach((f, i) => tone(f, i * 0.2, 0.7, 0.08)),
+  warn: () => [784, 659].forEach((f, i) => tone(f, i * 0.3, 0.6, 0.07)),
+  wake: () => [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.25, 1.1, 0.07)),
+  spin: () => tone(600 + Math.random() * 500, 0, 0.06, 0.05, 'triangle')
+};
+function say(text) {
+  if (!settings.voice || !('speechSynthesis' in window)) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 0.9; u.pitch = 1.15; speechSynthesis.speak(u); } catch (e) {}
+}
+document.addEventListener('pointerdown', () => { audio(); keepAwake(); }, { passive: true });
+let wakeLock = null;
+async function keepAwake() { try { if (!wakeLock && navigator.wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => wakeLock = null); } } catch (e) {} }
+
+/* =================== RENDER =================== */
+const $ = id => document.getElementById(id);
+const kids = () => settings.names.map((n, i) => ({ name: n, av: settings.avatars[i] }));
+const bothNames = () => settings.names.join(' & ');
+let lastKey = null, lastLaneSig = null, nightTouched = 0;
+
+function nextInfo(n) {
+  if (n.id === 'out') return { icon: '🚗', label: 'Off we go!', c: 'var(--c-day)' };
+  if (n.id === 'night') return { icon: '🌙', label: 'Bedtime', c: 'var(--c-night)' };
+  const p = PHASES[n.id];
+  return { icon: p.icon, label: p.label.replace('!', ''), c: 'var(--c-' + n.id + ')' };
+}
+
+function renderTrack(v) {
+  const track = $('track');
+  const ids = ['wake', 'dress', 'breakfast', 'play', 'leave'];
+  if (!track.querySelector('.seg')) {
+    ids.forEach(id => {
+      const s = document.createElement('div');
+      s.className = 'seg c-' + id; s.dataset.id = id;
+      s.innerHTML = '<span class="e">' + PHASES[id].icon + '</span><span class="tick e"></span>';
+      track.appendChild(s);
+    });
+  }
+  const b = v.bounds;
+  const order = ids.indexOf(v.phase);
+  ids.forEach((id, i) => {
+    const s = track.querySelector('[data-id="' + id + '"]');
+    let w = 1;
+    if (b) w = Math.max(0, b[i + 1] - b[i]);
+    else w = [15, 15, 10, 10, 5][i] * MIN;
+    s.style.flexGrow = w / MIN;
+    const past = b ? (order > i || v.phase === 'day') : v.phase === 'day';
+    s.classList.toggle('past', past);
+    s.classList.toggle('cur', order === i);
+    s.classList.toggle('empty', id === 'play' && b && w < MIN);
+    s.querySelector('.tick').textContent = past && id !== 'play' && id !== 'wake' ? '✓' : '';
+  });
+  // marker: the children travelling together along the path
+  let f = 0;
+  if (b) f = (v.t - b[0]) / (b[5] - b[0]);
+  else if (v.phase === 'day' || v.phase === 'weekend') f = 1;
+  f = Math.min(1, Math.max(0, f));
+  $('marker').style.left = (f * 100) + '%';
+  $('pals').textContent = settings.avatars.join('');
+}
+
+function renderLanes(v) {
+  const sig = [v.key, JSON.stringify(state.ticks[v.phase] || {}), JSON.stringify(state.kidDone[v.phase] || {}), state.stars.join(), settings.names.join(), settings.avatars.join()].join('|');
+  if (sig === lastLaneSig) return;
+  lastLaneSig = sig;
+  const lanes = $('lanes');
+  lanes.innerHTML = kids().map((k, i) => {
+    const stars = '⭐'.repeat(state.stars[i]);
+    let body;
+    const steps = STEPS[v.phase];
+    if (steps && v.task) {
+      if (state.kidDone[v.phase] && state.kidDone[v.phase][i]) {
+        body = '<div class="lane-msg"><span class="e">⭐</span>All done! Help ' + esc(settings.names[1 - i]) + '?</div>';
+      } else {
+        const ticks = ((state.ticks[v.phase] || {})[i]) || [];
+        body = '<div class="steps">' + steps.map((s, j) =>
+          '<button class="step' + (ticks.includes(j) ? ' on' : '') + '" data-kid="' + i + '" data-step="' + j + '" aria-pressed="' + ticks.includes(j) + '">' +
+          '<span class="si e">' + s[0] + '</span><span class="st">' + s[1] + '</span></button>').join('') + '</div>';
+      }
+    } else {
+      const msg = {
+        wake: ['🤗', 'Cuddle time'],
+        play: [i === chooser() ? '👑' : '🎉', i === chooser() ? 'You pick the game today' : 'Ready to play!'],
+        leave: ['🚪', 'Ready! Door dance!'],
+        day: ['⭐', state.stars[i] ? state.stars[i] + ' stars today!' : 'Have fun!'],
+        weekend: ['🥞', 'Weekend!'],
+        night: ['💤', 'Shh']
+      }[v.key === 'leave-ready' ? 'leave' : v.phase] || ['🙂', ''];
+      body = '<div class="lane-msg"><span class="e">' + msg[0] + '</span>' + msg[1] + '</div>';
+    }
+    const done = state.kidDone[v.phase] && state.kidDone[v.phase][i];
+    return '<div class="lane' + (done || v.ready ? ' done' : '') + '">' +
+      '<button class="who" data-hello="' + i + '"><span class="avatar e">' + k.av + '</span><span class="kname">' + esc(k.name) + '</span><span class="kstars e">' + stars + '</span></button>' +
+      body + '</div>';
+  }).join('');
+}
+
+function render() {
+  const v = compute(now());
+  const p = PHASES[v.phase];
+  document.body.dataset.phase = v.phase;
+
+  // phase change side effects
+  if (lastKey !== null && lastKey !== v.key) onPhaseChange(v, lastKey);
+  lastKey = v.key;
+
+  // night overlay
+  const night = $('night');
+  night.hidden = v.phase !== 'night';
+  if (v.phase === 'night') {
+    const dawnStart = v.end - CFG.bonjour * MIN;
+    const dawn = v.t > dawnStart ? (v.t - dawnStart) / (CFG.bonjour * MIN) : 0;
+    night.classList.toggle('dawn', dawn > 0);
+    night.style.setProperty('--dawn', dawn.toFixed(3));
+    $('spFill').style.width = ((1 - v.frac) * 100) + '%';
+    $('sleepers').textContent = settings.avatars.join('');
+    $('nightTitle').textContent = dawn > 0 ? 'Nearly time! Stay in bed a tiny bit more.' : 'Sleepy time. Stay in bed.';
+    $('nightHint').textContent = 'The sun comes up at ' + fmt(v.end);
+    night.classList.toggle('dimmed', Date.now() - nightTouched > 12000 && dawn === 0);
+  }
+
+  // clock + parent chip
+  $('clockTime').textContent = fmt(v.t);
+  $('demoTime').textContent = fmt(v.t) + ':' + String(new Date(v.t).getSeconds()).padStart(2, '0');
+  const chip = $('chip');
+  if (v.bounds && v.phase !== 'leave') {
+    const diff = v.playMins - 10;
+    chip.classList.remove('hide');
+    chip.classList.toggle('behind', diff < 0);
+    chip.textContent = diff >= 0 ? (diff ? '+' + diff + ' min ahead' : 'On track') : (-diff) + ' min behind';
+  } else chip.classList.add('hide');
+
+  renderTrack(v);
+
+  // NOW
+  $('nowIcon').textContent = p.icon;
+  $('nowLabel').textContent = v.ready ? 'Ready to go!' : p.label;
+  let sub = p.sub;
+  if (v.over) sub = "Time's up! Let's finish.";
+  else if (v.ready) sub = 'Wait at the door for the grown-ups';
+  else if (v.task && v.remaining < 2 * MIN) sub = 'Two more minutes!';
+  $('nowSub').textContent = sub;
+  const disc = $('disc');
+  const showTimer = !['day', 'weekend', 'night'].includes(v.phase);
+  disc.style.setProperty('--f', showTimer ? v.frac.toFixed(4) : 1);
+  disc.classList.toggle('over', !!v.over);
+  disc.classList.toggle('hurry', showTimer && !v.over && v.remaining > 0 && v.remaining < 2 * MIN);
+  const mins = Math.max(0, Math.ceil(v.remaining / MIN));
+  const dots = $('dots');
+  const nd = showTimer && !v.over ? Math.min(mins, 15) : 0;
+  if (dots.childElementCount !== nd) {
+    dots.innerHTML = Array.from({ length: nd }, (_, i) => '<span class="dot' + (i === nd - 1 ? ' going' : '') + '"></span>').join('');
+  }
+  $('grown').textContent = showTimer
+    ? (v.over ? Math.ceil(-v.remaining / MIN) + ' min over · ' : mins + ' min left · ') + 'until ' + fmt(v.end)
+    : (v.phase === 'weekend' ? 'Bedtime ' + fmt(v.end) : v.phase === 'day' ? 'Bedtime ' + fmt(v.end) : '');
+
+  // play game card
+  const game = $('game');
+  game.hidden = v.phase !== 'play';
+  if (v.phase === 'play' && !spinning) renderGame();
+
+  // NEXT
+  const n = nextInfo(v.next);
+  $('nextIcon').textContent = n.icon;
+  $('next').style.setProperty('--nc', 'color-mix(in srgb, ' + n.c + ' 30%, white)');
+  $('nextLabel').textContent = n.label;
+  $('nextTime').textContent = 'at ' + fmt(v.next.time);
+
+  // PLAY JAR
+  const jw = $('jarWrap');
+  let pm = v.bounds ? v.playMins : 10;
+  if (v.phase === 'play') pm = mins;
+  if (v.phase === 'leave' || v.phase === 'day' || v.phase === 'weekend') pm = 0;
+  jw.hidden = (!v.bounds && v.phase !== 'night') || v.phase === 'leave';
+  $('jarNum').textContent = pm;
+  $('jarFill').style.height = Math.min(100, pm / 15 * 100) + '%';
+  jw.classList.toggle('shrink', !!v.over);
+  $('jarHint').textContent = v.over ? 'Oh no, play time is shrinking!' :
+    v.phase === 'play' ? 'Play time left' :
+    v.phase === 'leave' ? 'Door dance next!' :
+    pm > 10 ? 'Super speedy! Extra play!' : 'Be quick to fill the jar!';
+
+  renderLanes(v);
+
+  // two-minute warning (once per phase)
+  if (showTimer && !v.ready && v.remaining > 0 && v.remaining <= 2 * MIN && !state.warned[v.phase] && v.phase !== 'wake') {
+    state.warned[v.phase] = true; save();
+    SFX.warn(); say('Two more minutes');
+  }
+}
+
+function onPhaseChange(v, prev) {
+  if (v.phase === 'wake' && prev === 'night') { SFX.wake(); celebrate('☀️', 'Good morning!', 'You can get up now'); say('Good morning! You can get up now.'); return; }
+  if (v.phase === 'day' && prev.startsWith('leave')) { SFX.star(); celebrate('👋', 'Bye bye house!', 'Have a great day'); say('Bye bye house! Have a great day.'); return; }
+  if (v.key === 'leave-ready') return; // the "both done" celebration already played
+  SFX.change();
+  const p = PHASES[v.phase];
+  say(p.label.replace('!', '') + (v.phase === 'play' ? '' : '. ' + p.sub));
+}
+
+/* =================== INTERACTION =================== */
+function chooser() { return Math.floor(dayStart(now()) / 86400000) % 2; }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+$('lanes').addEventListener('click', e => {
+  const hello = e.target.closest('[data-hello]');
+  if (hello) { const a = hello.querySelector('.avatar'); a.classList.remove('bounce'); void a.offsetWidth; a.classList.add('bounce'); SFX.tap(); return; }
+  const btn = e.target.closest('.step'); if (!btn) return;
+  const v = compute(now()); if (!v.task) return;
+  const kid = +btn.dataset.kid, step = +btn.dataset.step, ph = v.phase;
+  const t = state.ticks[ph] = state.ticks[ph] || {};
+  const list = t[kid] = t[kid] || [];
+  const at = list.indexOf(step);
+  if (at >= 0) { list.splice(at, 1); SFX.untap(); } else { list.push(step); SFX.tap(); }
+  if (list.length === STEPS[ph].length) kidFinished(v, kid, btn);
+  save(); render();
+});
+
+function kidFinished(v, kid, fromEl) {
+  const kd = state.kidDone[v.phase] = state.kidDone[v.phase] || {};
+  if (kd[kid]) return;
+  kd[kid] = true;
+  state.stars[kid]++;
+  SFX.star();
+  confetti(fromEl, 14);
+  if (kd[0] && kd[1]) setTimeout(() => allDone(v.phase), 700);
+}
+
+function allDone(ph, byParent) {
+  const t = now();
+  const v = compute(t);
+  if (v.phase !== ph) return;
+  const early = Math.floor((v.end - t) / MIN);
+  state.done[ph] = { at: t };
+  save();
+  if (ph === 'wake' || ph === 'play') { render(); return; }
+  const extra = ph !== 'leave' && early > 0 ? '+' + early + ' minute' + (early > 1 ? 's' : '') + ' of play time!' : '';
+  if (!byParent) {
+    celebrate('⭐', 'Well done ' + bothNames() + '!', ph === 'leave' ? 'Door dance time!' : extra);
+    say('Well done ' + bothNames() + '! ' + (ph === 'leave' ? 'Door dance time!' : extra));
+  }
+  if (extra) plusOne(extra.split(' ')[0]);
+  render();
+}
+
+let celebrateTimer = null;
+function celebrate(icon, msg, msg2) {
+  const c = $('celebrate');
+  c.innerHTML = '<div class="box"><div class="big e">' + icon + '</div><div class="msg">' + esc(msg) + '</div>' + (msg2 ? '<div class="msg2">' + esc(msg2) + '</div>' : '') + '</div>';
+  c.hidden = false;
+  confetti(null, 28);
+  clearTimeout(celebrateTimer);
+  celebrateTimer = setTimeout(() => { c.hidden = true; }, 2600);
+}
+function confetti(fromEl, n) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = fromEl ? fromEl.getBoundingClientRect() : { left: innerWidth / 2, top: innerHeight / 2, width: 0, height: 0 };
+  const bits = ['⭐', '✨', '🎉', '💛', '🌟'];
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement('span');
+    s.className = 'confetti e'; s.textContent = bits[i % bits.length];
+    s.style.left = (r.left + r.width / 2) + 'px'; s.style.top = (r.top + r.height / 2) + 'px';
+    const a = Math.random() * Math.PI * 2, d = 80 + Math.random() * 220;
+    s.style.setProperty('--dx', Math.cos(a) * d + 'px'); s.style.setProperty('--dy', Math.sin(a) * d - 60 + 'px');
+    s.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 1700);
+  }
+}
+function plusOne(text) {
+  const jw = $('jarWrap'); const r = jw.getBoundingClientRect();
+  const s = document.createElement('span'); s.className = 'plus'; s.textContent = text + ' min';
+  s.style.left = (r.left + 20) + 'px'; s.style.top = (r.top + 10) + 'px'; s.style.position = 'fixed';
+  document.body.appendChild(s); setTimeout(() => s.remove(), 1900);
+}
+
+// Play-time game spinner: the chooser rotates daily so siblings take turns.
+let spinning = false;
+function renderGame() {
+  const k = kids()[chooser()];
+  $('gWho').textContent = k.av + ' ' + k.name + ' picks today';
+  if (state.game == null) { $('gIcon').textContent = '🎡'; $('gName').textContent = 'Spin for a game!'; $('gHow').textContent = 'Real games, not screen games'; $('spin').textContent = 'Spin!'; }
+  else { const g = GAMES[state.game]; $('gIcon').textContent = g[0]; $('gName').textContent = g[1]; $('gHow').textContent = g[2]; $('spin').textContent = 'Again'; }
+}
+$('spin').addEventListener('click', () => {
+  if (spinning) return; spinning = true;
+  let i = 0, steps = 14 + Math.floor(Math.random() * GAMES.length);
+  const go = () => {
+    const g = GAMES[i % GAMES.length];
+    $('gIcon').textContent = g[0]; $('gName').textContent = g[1]; $('gHow').textContent = '';
+    SFX.spin();
+    if (i++ < steps) setTimeout(go, 60 + i * 9);
+    else { state.game = (i - 1) % GAMES.length; save(); spinning = false; SFX.star(); renderGame(); say(g[1]); }
+  };
+  go();
+});
+
+$('night').addEventListener('pointerdown', () => { nightTouched = Date.now(); $('night').classList.remove('dimmed'); });
+
+/* =================== GROWN-UP PANEL =================== */
+let holdT = null;
+const clockBtn = $('clock');
+clockBtn.addEventListener('pointerdown', () => { holdT = setTimeout(openPanel, 1200); });
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => clockBtn.addEventListener(ev, () => clearTimeout(holdT)));
+clockBtn.addEventListener('keydown', e => { if (e.key === 'Enter') openPanel(); });
+$('demoParent').addEventListener('click', openPanel);
+
+function openPanel() {
+  const v = compute(now());
+  const wkOpts = [360, 390, 405, 420, 435, 450, 480].map(m => '<option value="' + m + '"' + (m === settings.weekendWake ? ' selected' : '') + '>' + fmtMin(m) + '</option>').join('');
+  $('panelRoot').innerHTML =
+    '<div class="panel-back" id="panelBack"><div class="panel" role="dialog" aria-label="Grown-up settings">' +
+    '<h3>Grown-up settings</h3>' +
+    [0, 1].map(i => '<div class="row"><label for="name' + i + '">Child ' + (i + 1) + '</label><input type="text" id="name' + i + '" maxlength="12" value="' + esc(settings.names[i]) + '">' +
+      AVATARS.map(a => '<button class="av e' + (settings.avatars[i] === a ? ' sel' : '') + '" data-av="' + i + '" data-a="' + a + '">' + a + '</button>').join('') + '</div>').join('') +
+    '<div class="row"><label><input type="checkbox" id="optSound"' + (settings.sound ? ' checked' : '') + '> Gentle chimes</label>' +
+    '<label><input type="checkbox" id="optVoice"' + (settings.voice ? ' checked' : '') + '> Spoken prompts</label>' +
+    '<label for="optWk">Weekend wake</label><select id="optWk">' + wkOpts + '</select></div>' +
+    '<div class="row"><button class="pbtn" id="pSkip">Finish this step for both</button><button class="pbtn" id="pReset">Reset today</button>' +
+    '<button class="pbtn" id="pDemo">' + (settings.demo ? 'Hide' : 'Show') + ' demo bar</button></div>' +
+    '<small>Now: ' + PHASES[v.phase].label + '. "Finish this step" moves on without giving stars (use it if a child is poorly or away). Open this panel by holding the clock for a second.</small>' +
+    '<div class="row"><button class="pbtn primary" id="pClose">Done</button></div>' +
+    '</div></div>';
+  const back = $('panelBack');
+  back.addEventListener('click', e => {
+    const av = e.target.closest('[data-av]');
+    if (av) { settings.avatars[+av.dataset.av] = av.dataset.a; back.querySelectorAll('[data-av="' + av.dataset.av + '"]').forEach(b => b.classList.toggle('sel', b === av)); save(); render(); return; }
+    if (e.target.id === 'pClose' || e.target === back) closePanel();
+    if (e.target.id === 'pSkip') { const v2 = compute(now()); if (['wake', 'dress', 'breakfast', 'play', 'leave'].includes(v2.phase)) allDone(v2.phase, true); closePanel(); }
+    if (e.target.id === 'pReset') { state = freshState(now()); save(); lastLaneSig = null; closePanel(); }
+    if (e.target.id === 'pDemo') { settings.demo = !settings.demo; save(); applyDemo(); closePanel(); }
+  });
+  back.addEventListener('input', e => {
+    if (e.target.id === 'name0' || e.target.id === 'name1') { settings.names[+e.target.id.slice(-1)] = e.target.value.trim() || 'Friend'; }
+    if (e.target.id === 'optSound') settings.sound = e.target.checked;
+    if (e.target.id === 'optVoice') settings.voice = e.target.checked;
+    if (e.target.id === 'optWk') settings.weekendWake = +e.target.value;
+    save(); render();
+  });
+}
+function closePanel() { $('panelRoot').innerHTML = ''; render(); }
+
+/* =================== DEMO BAR =================== */
+function applyDemo() {
+  const on = settings.demo && location.hash !== '#kiosk';
+  $('demo').hidden = !on; document.body.classList.toggle('demo-on', on);
+}
+$('demoHide').addEventListener('click', () => { settings.demo = false; save(); applyDemo(); });
+$('demo').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.speed) { setSim(null, +b.dataset.speed); $('demo').querySelectorAll('[data-speed]').forEach(x => x.classList.toggle('on', x === b)); }
+  if (b.dataset.jump) {
+    if (b.dataset.jump === 'now') { setSim(Date.now(), 1); $('demo').querySelectorAll('[data-speed]').forEach(x => x.classList.toggle('on', x.dataset.speed === '1')); state = null; ensureDay(now()); }
+    else jumpTo(+b.dataset.jump);
+  }
+  lastKey = null; lastLaneSig = null; render();
+});
+// Jump to a time of day on a weekday, pretending earlier steps were done on time.
+function jumpTo(min) {
+  let base = dayStart(Date.now());
+  while (!isWeekday(base + 12 * 3600000)) base += 86400000;
+  const t = base + min * MIN;
+  setSim(t);
+  state = freshState(t);
+  const M = x => base + x * MIN;
+  if (min >= CFG.dress + CFG.dur.dress) { state.done.dress = { at: M(CFG.dress + CFG.dur.dress) }; state.stars = [1, 1]; }
+  if (min >= CFG.dress + CFG.dur.dress + CFG.dur.breakfast) { state.done.breakfast = { at: M(CFG.dress + CFG.dur.dress + CFG.dur.breakfast) }; state.stars = [2, 2]; }
+  if (min >= CFG.out) state.stars = [3, 3];
+  nightTouched = Date.now();
+  save();
+}
+
+applyDemo();
+// Outside kiosk mode, open on a weekday morning so the routine is visible straight away.
+if (location.hash !== '#kiosk' && settings.demo) jumpTo(CFG.dress + 4);
+render();
+setInterval(render, 250);
+</script>
+</body>
+</html>
